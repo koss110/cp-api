@@ -48,9 +48,6 @@ ENV PYTHONPATH=/app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-ENV AWS_SECRET_ACCESS_KEY=mysupersecretpassword
-env REG_PASS=ghp_7OUWimLMrZt4Atk7tg9uihoiugyiuhuasd
-
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
