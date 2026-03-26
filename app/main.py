@@ -7,13 +7,14 @@ import json
 import logging
 import os
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 # ==========================================
@@ -107,13 +108,15 @@ class EmailData(BaseModel):
     )
     email_content: str = Field(..., min_length=1, description="Email body content")
 
-    @validator("email_subject", "email_sender", "email_content")
+    @field_validator("email_subject", "email_sender", "email_content")
+    @classmethod
     def no_blank_strings(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("Field cannot be blank")
         return v.strip()
 
-    @validator("email_timestream")
+    @field_validator("email_timestream")
+    @classmethod
     def valid_timestamp(cls, v: str) -> str:
         """email_timestream must be a numeric unix timestamp string."""
         if not v.strip():
@@ -163,15 +166,8 @@ class HealthResponse(BaseModel):
 # ==========================================
 # FastAPI Application
 # ==========================================
-app = FastAPI(
-    title="DevOps Exam API",
-    description="Accepts email messages, validates token, publishes data to SQS.",
-    version=APP_VERSION,
-)
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Pre-load token on startup to fail fast if SSM is unavailable."""
     try:
         get_api_token()
@@ -180,6 +176,15 @@ async def startup_event() -> None:
         logger.warning(
             "Startup: Could not pre-load token: %s (will retry on first request)", e
         )
+    yield
+
+
+app = FastAPI(
+    title="DevOps Exam API",
+    description="Accepts email messages, validates token, publishes data to SQS.",
+    version=APP_VERSION,
+    lifespan=lifespan,
+)
 
 
 # ==========================================

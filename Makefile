@@ -33,7 +33,7 @@ install: $(VENV)/bin/activate
 test: test-unit
 
 test-unit: install
-	$(PYTEST) tests/test_main.py -v
+	$(PYTEST) tests/test_main.py -v --cov=app --cov-report=term-missing
 
 test-integration: install
 	@if [ -z "$(LOCALSTACK_ENDPOINT)" ]; then \
