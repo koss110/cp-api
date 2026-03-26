@@ -39,6 +39,7 @@ VALID_DATA = {
 # Fixtures
 # ==========================================
 
+
 @pytest.fixture(scope="module")
 def aws_clients():
     kwargs = {
@@ -66,7 +67,9 @@ def localstack_resources(aws_clients):
         queue_url = sqs.get_queue_url(QueueName=QUEUE_NAME)["QueueUrl"]
 
     # Seed SSM token
-    ssm.put_parameter(Name=SSM_PARAM, Value=TEST_TOKEN, Type="SecureString", Overwrite=True)
+    ssm.put_parameter(
+        Name=SSM_PARAM, Value=TEST_TOKEN, Type="SecureString", Overwrite=True
+    )
 
     yield {"queue_url": queue_url}
 
@@ -91,16 +94,19 @@ def api_client(localstack_resources):
 
     import importlib
     import app.main as main_module
+
     importlib.reload(main_module)
     main_module.invalidate_token_cache()
 
     from app.main import app
+
     return TestClient(app)
 
 
 # ==========================================
 # Tests
 # ==========================================
+
 
 def test_health_endpoint(api_client):
     r = api_client.get("/healthz")
@@ -124,11 +130,15 @@ def test_message_published_to_sqs(api_client, aws_clients, localstack_resources)
     assert r.json()["status"] == "published"
 
     # Verify message landed in SQS
-    msgs = aws_clients["sqs"].receive_message(
-        QueueUrl=localstack_resources["queue_url"],
-        MaxNumberOfMessages=1,
-        WaitTimeSeconds=2,
-    ).get("Messages", [])
+    msgs = (
+        aws_clients["sqs"]
+        .receive_message(
+            QueueUrl=localstack_resources["queue_url"],
+            MaxNumberOfMessages=1,
+            WaitTimeSeconds=2,
+        )
+        .get("Messages", [])
+    )
     assert len(msgs) == 1
     body = json.loads(msgs[0]["Body"])
     assert body["email_subject"] == VALID_DATA["email_subject"]
@@ -137,5 +147,8 @@ def test_message_published_to_sqs(api_client, aws_clients, localstack_resources)
 
 
 def test_message_validates_payload(api_client):
-    r = api_client.post("/message", json={"data": {"email_subject": "only one field"}, "token": TEST_TOKEN})
+    r = api_client.post(
+        "/message",
+        json={"data": {"email_subject": "only one field"}, "token": TEST_TOKEN},
+    )
     assert r.status_code == 422

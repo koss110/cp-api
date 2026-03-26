@@ -15,6 +15,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, validator
 
+
 # ==========================================
 # Logging — JSON format
 # ==========================================
@@ -29,6 +30,7 @@ class _JsonFormatter(logging.Formatter):
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload)
+
 
 _handler = logging.StreamHandler()
 _handler.setFormatter(_JsonFormatter())
@@ -100,7 +102,9 @@ class EmailData(BaseModel):
 
     email_subject: str = Field(..., min_length=1, description="Email subject")
     email_sender: str = Field(..., min_length=1, description="Sender name or address")
-    email_timestream: str = Field(..., min_length=1, description="Unix timestamp of the email")
+    email_timestream: str = Field(
+        ..., min_length=1, description="Unix timestamp of the email"
+    )
     email_content: str = Field(..., min_length=1, description="Email body content")
 
     @validator("email_subject", "email_sender", "email_content")
@@ -117,7 +121,9 @@ class EmailData(BaseModel):
         try:
             int(v.strip())
         except ValueError:
-            raise ValueError("email_timestream must be a valid unix timestamp (numeric string)")
+            raise ValueError(
+                "email_timestream must be a valid unix timestamp (numeric string)"
+            )
         return v.strip()
 
 
@@ -136,7 +142,9 @@ class MessageRequest(BaseModel):
     """
 
     data: EmailData
-    token: str = Field(..., min_length=1, description="Auth token — validated against SSM")
+    token: str = Field(
+        ..., min_length=1, description="Auth token — validated against SSM"
+    )
 
 
 class MessageResponse(BaseModel):
@@ -169,7 +177,9 @@ async def startup_event() -> None:
         get_api_token()
         logger.info("Startup: API token loaded successfully")
     except RuntimeError as e:
-        logger.warning("Startup: Could not pre-load token: %s (will retry on first request)", e)
+        logger.warning(
+            "Startup: Could not pre-load token: %s (will retry on first request)", e
+        )
 
 
 # ==========================================
@@ -233,7 +243,11 @@ def publish_message(request: MessageRequest) -> MessageResponse:
                 "source": {"StringValue": "api-service", "DataType": "String"},
             },
         )
-        logger.info("Message published: id=%s subject=%s", message_id, request.data.email_subject)
+        logger.info(
+            "Message published: id=%s subject=%s",
+            message_id,
+            request.data.email_subject,
+        )
     except (ClientError, BotoCoreError) as e:
         logger.error("Failed to publish to SQS: %s", e)
         raise HTTPException(status_code=503, detail="Failed to publish message") from e
