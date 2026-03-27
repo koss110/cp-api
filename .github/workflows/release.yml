@@ -68,18 +68,21 @@ jobs:
           path: infra
           ref: main
 
-      - name: Update api_image_tag in image_tags.staging.tfvars
+      - name: Update api_image_tag in staging and production tfvars
         run: |
           sed -i "s|^api_image_tag.*=.*|api_image_tag    = \"$IMAGE_TAG\"|" \
             infra/iac/terraform/envs/eus2/image_tags.staging.tfvars
+          sed -i "s|^api_image_tag.*=.*|api_image_tag    = \"$IMAGE_TAG\"|" \
+            infra/iac/terraform/envs/eus2/image_tags.production.tfvars
 
       - name: Commit and push image tag update
         run: |
           cd infra
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add iac/terraform/envs/eus2/image_tags.staging.tfvars
-          git commit -m "chore(staging): update api_image_tag to $IMAGE_TAG" || echo "Nothing to commit"
+          git add iac/terraform/envs/eus2/image_tags.staging.tfvars \
+                  iac/terraform/envs/eus2/image_tags.production.tfvars
+          git commit -m "chore: update api_image_tag to $IMAGE_TAG" || echo "Nothing to commit"
           git push origin main
 
       # ---- Open PR infra main → production ----
