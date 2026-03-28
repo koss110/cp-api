@@ -6,6 +6,7 @@ Receives requests from ELB, validates token, validates payload, publishes to SQS
 import json
 import logging
 import os
+import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -13,7 +14,8 @@ from typing import Any, Dict
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from prometheus_client import Counter, Histogram, Info, make_asgi_app
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -64,6 +66,36 @@ if LOCALSTACK_ENDPOINT:
 # ==========================================
 ssm_client = boto3.client("ssm", **AWS_KWARGS)
 sqs_client = boto3.client("sqs", **AWS_KWARGS)
+
+# ==========================================
+# Prometheus Metrics
+# ==========================================
+BUILD_INFO = Info("api_build", "API build information")
+BUILD_INFO.info({"version": APP_VERSION, "service": "api"})
+
+REQUEST_COUNT = Counter(
+    "api_requests",
+    "Total HTTP requests",
+    ["method", "path", "status"],
+)
+REQUEST_LATENCY = Histogram(
+    "api_request_duration_seconds",
+    "HTTP request duration in seconds",
+    ["path"],
+    buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5],
+)
+TOKEN_ERRORS = Counter(
+    "api_token_validation_errors",
+    "Requests rejected due to invalid token",
+)
+MESSAGES_PUBLISHED = Counter(
+    "api_messages_published",
+    "Messages successfully published to SQS",
+)
+SQS_ERRORS = Counter(
+    "api_sqs_publish_errors",
+    "Failures publishing to SQS",
+)
 
 # ==========================================
 # Token Cache
@@ -186,6 +218,32 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Mount Prometheus metrics endpoint
+app.mount("/metrics", make_asgi_app())
+
+
+# ==========================================
+# Middleware — request instrumentation
+# ==========================================
+@app.middleware("http")
+async def prometheus_middleware(request: Request, call_next):
+    # Skip /metrics itself to avoid self-noise
+    if request.url.path == "/metrics":
+        return await call_next(request)
+
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration = time.perf_counter() - start
+
+    path = request.url.path
+    REQUEST_COUNT.labels(
+        method=request.method,
+        path=path,
+        status=str(response.status_code),
+    ).inc()
+    REQUEST_LATENCY.labels(path=path).observe(duration)
+    return response
+
 
 # ==========================================
 # Endpoints
@@ -221,6 +279,7 @@ def publish_message(request: MessageRequest) -> MessageResponse:
 
     if request.token != expected_token:
         logger.warning("Invalid token attempt")
+        TOKEN_ERRORS.inc()
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     # 2. Publish data (not the token) to SQS
@@ -248,12 +307,14 @@ def publish_message(request: MessageRequest) -> MessageResponse:
                 "source": {"StringValue": "api-service", "DataType": "String"},
             },
         )
+        MESSAGES_PUBLISHED.inc()
         logger.info(
             "Message published: id=%s subject=%s",
             message_id,
             request.data.email_subject,
         )
     except (ClientError, BotoCoreError) as e:
+        SQS_ERRORS.inc()
         logger.error("Failed to publish to SQS: %s", e)
         raise HTTPException(status_code=503, detail="Failed to publish message") from e
 
