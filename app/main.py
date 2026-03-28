@@ -15,7 +15,7 @@ from typing import Any, Dict
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, HTTPException, Request
-from prometheus_client import Counter, Histogram, Info, make_asgi_app
+from prometheus_client import REGISTRY, Counter, Histogram, Info, make_asgi_app
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -67,34 +67,47 @@ if LOCALSTACK_ENDPOINT:
 ssm_client = boto3.client("ssm", **AWS_KWARGS)
 sqs_client = boto3.client("sqs", **AWS_KWARGS)
 
+
 # ==========================================
 # Prometheus Metrics
 # ==========================================
-BUILD_INFO = Info("api_build", "API build information")
+def _safe_register(cls, name, *args, **kwargs):
+    """Register a metric or return the existing one.
+
+    importlib.reload() re-runs module-level code against the same global
+    CollectorRegistry, causing ValueError on duplicate names. This helper
+    returns the already-registered collector instead of raising.
+    """
+    try:
+        return cls(name, *args, **kwargs)
+    except ValueError:
+        for collector in set(REGISTRY._names_to_collectors.values()):
+            if getattr(collector, "_name", None) == name:
+                return collector
+        raise
+
+
+BUILD_INFO = _safe_register(Info, "api_build", "API build information")
 BUILD_INFO.info({"version": APP_VERSION, "service": "api"})
 
-REQUEST_COUNT = Counter(
-    "api_requests",
-    "Total HTTP requests",
-    ["method", "path", "status"],
+REQUEST_COUNT = _safe_register(
+    Counter, "api_requests", "Total HTTP requests", ["method", "path", "status"]
 )
-REQUEST_LATENCY = Histogram(
+REQUEST_LATENCY = _safe_register(
+    Histogram,
     "api_request_duration_seconds",
     "HTTP request duration in seconds",
     ["path"],
     buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5],
 )
-TOKEN_ERRORS = Counter(
-    "api_token_validation_errors",
-    "Requests rejected due to invalid token",
+TOKEN_ERRORS = _safe_register(
+    Counter, "api_token_validation_errors", "Requests rejected due to invalid token"
 )
-MESSAGES_PUBLISHED = Counter(
-    "api_messages_published",
-    "Messages successfully published to SQS",
+MESSAGES_PUBLISHED = _safe_register(
+    Counter, "api_messages_published", "Messages successfully published to SQS"
 )
-SQS_ERRORS = Counter(
-    "api_sqs_publish_errors",
-    "Failures publishing to SQS",
+SQS_ERRORS = _safe_register(
+    Counter, "api_sqs_publish_errors", "Failures publishing to SQS"
 )
 
 # ==========================================
