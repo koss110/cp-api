@@ -2,6 +2,7 @@
 
 ![CI](https://github.com/koss110/cp-api/actions/workflows/ci.yml/badge.svg)
 ![Release](https://github.com/koss110/cp-api/actions/workflows/release.yml/badge.svg)
+![CodeQL](https://github.com/koss110/cp-api/actions/workflows/codeql.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688)
 
