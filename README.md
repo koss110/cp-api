@@ -163,6 +163,8 @@ make pre-commit-install
 make pre-commit-run
 ```
 
+![pre-commit-run output](docs/pre-commit-run.png)
+
 ---
 
 ## CI/CD
