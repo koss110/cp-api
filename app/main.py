@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 AWS_REGION = os.getenv("AWS_REGION", "us-east-2")
 APP_VERSION = os.getenv("APP_VERSION", "unknown")
 SQS_QUEUE_URL = os.getenv("SQS_QUEUE_URL", "")
-SSM_PARAMETER_NAME = os.getenv("SSM_PARAMETER_NAME", "/devops-exam-costa/api/token")
+SSM_PARAMETER_NAME = os.getenv("SSM_PARAMETER_NAME", "/exam-costa/staging/api/token")
 
 # LocalStack support
 LOCALSTACK_ENDPOINT = os.getenv("LOCALSTACK_ENDPOINT", "")
@@ -238,7 +238,7 @@ publishes the email payload to an **AWS SQS** queue for downstream processing.
 
 Pass the secret token in the request body as `token`.
 It is compared against the value stored in SSM Parameter Store
-(`SSM_PARAMETER_NAME` env var, default `/devops-exam-costa/api/token`).
+(`SSM_PARAMETER_NAME` env var, pattern `/{project}/{env}/api/token`).
 
 ## Infrastructure
 

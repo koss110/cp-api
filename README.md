@@ -200,7 +200,7 @@ gh workflow run release.yml \
 |----------|---------|-------------|
 | `AWS_REGION` | `us-east-2` | AWS region |
 | `SQS_QUEUE_URL` | — | SQS queue URL |
-| `SSM_PARAMETER_NAME` | `/devops-exam-costa/api/token` | SSM path for API token |
+| `SSM_PARAMETER_NAME` | `/exam-costa/staging/api/token` | SSM path for API token — pattern `/{project}/{env}/api/token` |
 | `LOCALSTACK_ENDPOINT` | — | Set to use LocalStack instead of AWS |
 | `LOG_LEVEL` | `INFO` | Log level |
 | `APP_VERSION` | `unknown` | Injected at build time via `--build-arg VERSION` |
