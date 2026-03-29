@@ -19,3 +19,5 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    ignore:
+      - dependency-name: "aws-actions/*"
